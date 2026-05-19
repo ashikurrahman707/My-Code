@@ -1,0 +1,383 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>AI Mock Interview System</title>
+
+<style>
+*{margin:0;padding:0;box-sizing:border-box;font-family:Arial}
+body{
+background:linear-gradient(135deg,#0f172a,#1e293b);
+color:#fff;
+min-height:100vh;
+display:flex;
+justify-content:center;
+align-items:center;
+padding:20px;
+}
+
+.wrapper{
+width:100%;
+max-width:1000px;
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:20px;
+}
+
+.box{
+background:rgba(255,255,255,0.08);
+backdrop-filter:blur(10px);
+padding:20px;
+border-radius:20px;
+position:relative;
+display: flex;
+flex-direction: column;
+}
+
+h1{
+text-align:center;
+margin-bottom:10px;
+font-size:28px;
+}
+
+#question{
+font-size:20px;
+margin:20px 0;
+min-height:80px;
+}
+
+.timers{
+margin:10px 0;
+font-size:16px;
+color:#93c5fd;
+}
+
+.controls{
+position:absolute;
+bottom:15px;
+right:15px;
+display:flex;
+gap:10px;
+}
+
+button{
+padding:10px 12px;
+border:none;
+border-radius:10px;
+cursor:pointer;
+background:#2563eb;
+color:#fff;
+font-size:14px;
+}
+
+button:hover{opacity:0.8}
+
+video{
+width:100%;
+border-radius:15px;
+margin-top:10px;
+background: #000;
+height: 220px;
+}
+
+.audio-visualizer{
+display:flex;
+justify-content:center;
+align-items:flex-end;
+height:60px;
+gap:4px;
+margin-top:15px;
+margin-bottom: 40px;
+}
+
+.bar{
+width:6px;
+height:15px;
+background:#22d3ee;
+border-radius:5px;
+transition: height 0.1s ease;
+}
+
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+
+<div class="box">
+<h1>CAS Interview Question</h1>
+
+<div id="question">Click Next to Start</div>
+
+<div class="timers">
+<div>Preparation: <span id="aiTimer">0</span></div>
+<div>Recording Starts In: <span id="recTimer">0</span></div>
+<div>Time Speaking: <span id="liveTime">0</span></div>
+</div>
+
+<div class="audio-visualizer" id="visualizer">
+<div class="bar"></div>
+<div class="bar"></div>
+<div class="bar"></div>
+<div class="bar"></div>
+<div class="bar"></div>
+</div>
+
+<div class="controls">
+<button onclick="nextFlow()">Next</button>
+<button onclick="stopAll()">Stop</button>
+</div>
+
+</div>
+
+<div class="box">
+<h1>Camera View</h1>
+<video id="preview" autoplay muted playsinline></video>
+<video id="recorded" controls></video>
+</div>
+
+</div>
+
+<script>
+
+const questions=[
+"Tell me about yourself",
+"Why do you want to study in the UK?",
+"Why this university?",
+"What is your future goals?",
+"Which other countries did you consider to pursue higher studies other than UK and which factors helped you choose UK over other countries?",
+"Describe about your hometown",
+"Describe about your strengths and weaknesses",
+"Why should we accept you?",
+"Tell about your study experience",
+"What are the benefits of studying in the UK compared to your home country?",
+"Why did you choose to study this course? ",
+"How this course is relevant to your previous study, work experience and career aspiration?",
+"How do you think this course will help you in your future career?",
+"How do you think your previous study and work experience will help you in this course?",
+"What are the modules you will be taught in this course? How you will be assessed?",
+"What is your future plan and how this course will help you reach your career goal?",
+"What is the course start date and end date?",
+"Have you ever been to the UK? If yes, tell us about your experience. If no, why do you want to go to the UK?",
+"How much is the tuition fee for this programme? Have you paid your tuition fee?",
+"How much is your living cost in the UK? How do you plan to support yourself financially during your studies?",
+"Do you have any family members or relatives in the UK? If yes, tell us about them and their status in the UK. If no, how do you plan to adapt to the new environment and culture in the UK?",
+"Have you ever been refused a visa to the UK or any country? If yes, tell us about the circumstances and reasons for the refusal. If no, how do you plan to ensure that your visa application is successful?",
+"Do you have any questions for us?",
+"Why did you choose to study at this university? What do you know about the university, location, about the city and county, the campus and the facilities?",
+"Which other universities did you consider? And which factors helped you choose this university over others?",
+"What is your accommodation arrangement, and how much will it cost? How would you travel to your university from the place you will be staying in?",
+"Do you have any plan to work in the UK? Are you aware of the UKVI guidance on working rights for the international students?",
+"Explanation of study gap in detail.",
+"Work experience: job responsibilities in detail.",
+"Name of your previous university's dean, head of department, vice chancellor!",
+"What are your hobbies and interests? How do you spend your leisure time?",
+"How do you plan to contribute to the university community and student life?",
+"How do you plan to contribute to the university community and student life?",
+"Modules studied in the UG and PG studies.",
+"Details of dependents: their profession etc.",
+"How do you plan to adapt to the new environment and culture in the UK?",
+"Have you ever been refused a visa to the UK or any country? If yes, tell us about the circumstances and reasons for the refusal. If no, how do you plan to ensure that your visa application is successful?",
+"Your role model: name a person who inspires you and why."
+
+
+
+
+
+
+
+];
+
+let current="";
+let stream;
+let recorder;
+let chunks=[];
+let aiT, recT, liveT, visualLoop;
+let audioContext, analyser, dataArray;
+let totalRecordedSeconds = 0; 
+
+window.addEventListener('DOMContentLoaded', () => {
+    if (window.location.protocol === 'file:') {
+        alert("⚠️ ENVIRONMENT ERROR: You opened this file by double-clicking it. Your browser will block video recordings on local 'file:///' URLs. You MUST run this through a local server (like VS Code Live Server) or upload it online!");
+    }
+    startCamera();
+});
+
+async function startCamera(){
+    try {
+        stream = await navigator.mediaDevices.getUserMedia({video:true, audio:true});
+        document.getElementById("preview").srcObject = stream;
+        setupVisualizer(stream);
+    } catch (err) {
+        console.error("Camera/Mic access denied:", err);
+        alert("❌ PERMISSION ERROR: The system cannot access your camera or microphone. Please click the lock icon next to your URL bar and change Camera/Microphone permissions to 'Allow'.");
+        document.getElementById("question").innerText = "Please enable webcam permissions to clear the black screens.";
+    }
+}
+
+// NEW FUNCTION: Creates a crisp, synthetic alarm beep sound
+function playBeep() {
+    try {
+        const ctx = audioContext || new (window.AudioContext || window.webkitAudioContext)();
+        const oscillator = ctx.createOscillator();
+        const gainNode = ctx.createGain();
+        
+        oscillator.type = 'sine';
+        oscillator.frequency.value = 600; // Pitch of the beep (600Hz is a clear alert tone)
+        
+        // Fast fade-out volume so it doesn't leave a long ringing tail in your recording
+        gainNode.gain.setValueAtTime(0.15, ctx.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.3); 
+        
+        oscillator.connect(gainNode);
+        gainNode.connect(ctx.destination);
+        
+        oscillator.start();
+        oscillator.stop(ctx.currentTime + 0.3); // Play for exactly 300ms
+    } catch (e) {
+        console.error("Audio beep generation failed:", e);
+    }
+}
+
+function speak(text){
+    window.speechSynthesis.cancel(); 
+    let s = new SpeechSynthesisUtterance(text);
+    s.rate = 1.0; 
+    window.speechSynthesis.speak(s);
+    return new Promise(r => { s.onend = r; });
+}
+
+function timer(id, sec, cb){
+    let timerId = id == "ai" ? "aiTimer" : "recTimer";
+    clearInterval(window[id + "T"]);
+    document.getElementById(timerId).innerText = sec;
+    
+    window[id + "T"] = setInterval(() => {
+        sec--;
+        document.getElementById(timerId).innerText = sec;
+        if(sec <= 0){
+            clearInterval(window[id + "T"]);
+            if(cb) cb();
+        }
+    }, 1000);
+}
+
+function startRecord(){
+    if (!stream) {
+        alert("Cannot record: Camera feed is missing or blocked by browser.");
+        return;
+    }
+    
+    // Play the alert beep exactly as the recording triggers
+    playBeep();
+    
+    recorder = new MediaRecorder(stream, { mimeType: 'video/webm' });
+    chunks = [];
+    
+    recorder.ondataavailable = e => {
+        if (e.data && e.data.size > 0) {
+            chunks.push(e.data);
+        }
+    };
+    
+    recorder.onstop = () => {
+        if (chunks.length === 0) {
+            alert("Error: No data recorded because your camera feed is currently black/empty.");
+            return;
+        }
+
+        let blob = new Blob(chunks, {type: "video/webm"});
+        let videoURL = URL.createObjectURL(blob);
+        
+        let recordedVideo = document.getElementById("recorded");
+        recordedVideo.src = videoURL;
+        recordedVideo.load();
+        
+        if (totalRecordedSeconds > 0) {
+            recordedVideo.addEventListener('loadedmetadata', function() {
+                Object.defineProperty(recordedVideo, 'duration', {
+                    value: totalRecordedSeconds,
+                    configurable: true
+                });
+            }, { once: true });
+        }
+    };
+    
+    recorder.start();
+}
+
+function setupVisualizer(mediaStream) {
+    if (audioContext) audioContext.close();
+    
+    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const source = audioContext.createMediaStreamSource(mediaStream);
+    analyser = audioContext.createAnalyser();
+    analyser.fftSize = 32; 
+    source.connect(analyser);
+    
+    const bufferLength = analyser.frequencyBinCount;
+    dataArray = new Uint8Array(bufferLength);
+    const bars = document.querySelectorAll('.bar');
+
+    function draw() {
+        visualLoop = requestAnimationFrame(draw);
+        analyser.getByteFrequencyData(dataArray);
+        
+        bars.forEach((bar, index) => {
+            let value = dataArray[index] || 0;
+            let height = Math.max(15, (value / 255) * 60); 
+            bar.style.height = height + 'px';
+        });
+    }
+    draw();
+}
+
+async function nextFlow(){
+    let recordedVideo = document.getElementById("recorded");
+    recordedVideo.pause(); 
+    recordedVideo.src = ""; 
+    
+    if(recorder && recorder.state != "inactive") recorder.stop();
+    clearInterval(liveT);
+    totalRecordedSeconds = 0;
+    document.getElementById("liveTime").innerText = "0";
+    document.getElementById("recTimer").innerText = "0";
+
+    current = questions[Math.floor(Math.random() * questions.length)];
+    document.getElementById("question").innerText = current;
+
+    let aiCount = 3;
+    timer("ai", aiCount, async () => {
+        await speak(current);
+
+        let recCount = 3;
+        timer("rec", recCount, () => {
+            startRecord();
+            startLiveTimer();
+        });
+    });
+}
+
+function startLiveTimer(){
+    clearInterval(liveT);
+    let live = 0;
+    liveT = setInterval(() => {
+        live++;
+        totalRecordedSeconds = live; 
+        document.getElementById("liveTime").innerText = live;
+    }, 1000);
+}
+
+function stopAll(){
+    if(recorder && recorder.state != "inactive") {
+        recorder.stop();
+    }
+    clearInterval(aiT);
+    clearInterval(recT);
+    clearInterval(liveT);
+}
+
+</script>
+</body>
+</html>
