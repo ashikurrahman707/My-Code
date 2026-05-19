@@ -17,6 +17,16 @@ align-items:center;
 padding:20px;
 }
 
+/* Main Heading Title Style at the top of the screen */
+.main-title {
+text-align: center;
+font-size: 36px;
+font-weight: bold;
+margin-bottom: 30px;
+color: #f8fafc;
+text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+}
+
 .wrapper{
 width:100%;
 max-width:1000px;
@@ -36,10 +46,11 @@ display: flex;
 flex-direction: column;
 }
 
-h1{
+h2{
 text-align:center;
 margin-bottom:10px;
-font-size:28px;
+font-size:24px;
+color: #e2e8f0;
 }
 
 #question{
@@ -120,17 +131,19 @@ text-decoration: underline;
 </head>
 <body>
 
+<h1 class="main-title">Virtual Interview Practice</h1>
+
 <div class="wrapper">
 
 <div class="box">
-<h1>UKVI Interview Question</h1>
+<h2>UKVI Interview Question</h2>
 
 <div id="question">Click Next to Start</div>
 
 <div class="timers">
 <div>Speak In: <span id="aiTimer">0</span></div>
 <div>Preparation Time: <span id="recTimer">0</span></div>
-<div>Speaking Time: <span id="liveTime">0</span></div>
+<div>Speaking Time: <span id="liveTime">0:00</span></div>
 </div>
 
 <div class="audio-visualizer" id="visualizer">
@@ -149,7 +162,7 @@ text-decoration: underline;
 </div>
 
 <div class="box">
-<h1>Camera View</h1>
+<h2>Camera View</h2>
 <video id="preview" autoplay muted playsinline></video>
 <video id="recorded" controls></video>
 </div>
@@ -200,12 +213,12 @@ const questions=[
 "Details of dependents: their profession etc.",
 "How do you plan to adapt to the new environment and culture in the UK?",
 "Have you ever been refused a visa to the UK or any country? If yes, tell us about the circumstances and reasons for the refusal. If no, how do you plan to ensure that your visa application is successful?",
-"Your role model: name a person who inspires you and why."
-
-
-
-
-
+"Your role model: name a person who inspires you and why?",
+"How do you handle stress and pressure?",
+"Can you describe a challenging situation you faced and how you overcame it?",
+"What are your long-term career aspirations and how does this course align with them?",
+"How do you plan to use the knowledge and skills gained from this course in your future careeer?",
+"What are your expectations from this course and how do you think it will help you grow personally and professionally?",
 
 
 ];
@@ -259,6 +272,13 @@ function playBeep() {
     } catch (e) {
         console.error("Audio beep generation failed:", e);
     }
+}
+
+// NEW HELPER: Converts raw seconds into a beautiful MM:SS string
+function formatTime(totalSeconds) {
+    const minutes = Math.floor(totalSeconds / 60);
+    const seconds = totalSeconds % 60;
+    return minutes + ":" + (seconds < 10 ? "0" : "") + seconds;
 }
 
 function speak(text){
@@ -363,7 +383,7 @@ async function nextFlow(){
     if(recorder && recorder.state != "inactive") recorder.stop();
     clearInterval(liveT);
     totalRecordedSeconds = 0;
-    document.getElementById("liveTime").innerText = "0";
+    document.getElementById("liveTime").innerText = "0:00"; // Reset interface to format format
     document.getElementById("recTimer").innerText = "0";
 
     current = questions[Math.floor(Math.random() * questions.length)];
@@ -387,7 +407,7 @@ function startLiveTimer(){
     liveT = setInterval(() => {
         live++;
         totalRecordedSeconds = live; 
-        document.getElementById("liveTime").innerText = live;
+        document.getElementById("liveTime").innerText = formatTime(live); // Uses formatting helper here
     }, 1000);
 }
 
